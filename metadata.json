@@ -1,0 +1,6 @@
+{
+  "name": "TDAH Foco",
+  "description": "Aplicativo de foco e regulação para TDAH com mapas mentais interativos, ruídos marrom, branco e rosa e timer Pomodoro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
