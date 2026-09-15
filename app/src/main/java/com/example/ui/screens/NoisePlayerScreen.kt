@@ -26,8 +26,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Tune
@@ -72,9 +74,12 @@ fun NoisePlayerScreen(
     onTogglePlayPause: () -> Unit,
     onSetVolume: (Float) -> Unit,
     onApplyMixedPreset: () -> Unit,
+    isPro: Boolean = true,
+    onOpenSubscription: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var timerOption by remember { mutableStateOf("Loop Infinito") }
+    var showProDialog by remember { mutableStateOf<String?>(null) }
 
     // Waveform audio visualization animation
     val infiniteTransition = rememberInfiniteTransition(label = "audio_wave")
@@ -214,6 +219,27 @@ fun NoisePlayerScreen(
                     )
                 }
 
+                // Loop Continuous Indicator
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.GraphicEq,
+                        contentDescription = null,
+                        tint = if (isPlaying) CalmMint else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = if (isPlaying) "Loop Contínuo Ativo (Sem Interrupções)" else "Pronto para sintetizar áudio contínuo",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (isPlaying) CalmMint else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp
+                        )
+                    )
+                }
+
                 // Volume slider
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -302,12 +328,22 @@ fun NoisePlayerScreen(
                 }
 
                 Button(
-                    onClick = onApplyMixedPreset,
+                    onClick = {
+                        if (isPro) {
+                            onApplyMixedPreset()
+                        } else {
+                            showProDialog = "A Mixagem Científica Personalizada (Rosa + Marrom sincronizado) é um recurso exclusivo do Plano Pro."
+                        }
+                    },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary),
                     modifier = Modifier.testTag("apply_mix_preset_btn")
                 ) {
-                    Text("Ativar Mix", color = NavyDarkBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    if (!isPro) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = NavyDarkBackground, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Text(if (isPro) "Ativar Mix" else "PRO", color = NavyDarkBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
@@ -447,5 +483,48 @@ fun NoisePlayerScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    // Pro Required Dialog for Noise Player
+    showProDialog?.let { reason ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showProDialog = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = WarmAmber)
+                    Text("Recurso Exclusivo Pro", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Assine por R$ 9,90/mês com 7 dias de teste grátis e cancele a qualquer momento.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showProDialog = null
+                        onOpenSubscription()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)
+                ) {
+                    Text("Conhecer Plano Pro", color = NavyDarkBackground, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showProDialog = null }) {
+                    Text("Depois")
+                }
+            }
+        )
     }
 }

@@ -9,6 +9,8 @@ import com.example.data.model.NoiseSession
 import com.example.data.model.NoiseType
 import com.example.data.model.PomodoroMode
 import com.example.data.model.RoutineTask
+import com.example.data.model.SubscriptionInfo
+import com.example.data.model.SubscriptionPlanStatus
 import com.example.data.repository.AdhdRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,7 +25,8 @@ enum class AppNavigationTab(val label: String, val iconName: String) {
     MIND_MAPS("Mapas", "mindmap"),
     NOISE_PLAYER("Ruídos", "noise"),
     ROUTINE("Rotina", "routine"),
-    SETTINGS("Ajustes", "settings")
+    SETTINGS("Ajustes", "settings"),
+    SUBSCRIPTION("Assinatura", "subscription")
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -53,6 +56,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isNoisePlaying: StateFlow<Boolean> = noiseSynthesizer.isPlaying
     val noiseVolume: StateFlow<Float> = noiseSynthesizer.volume
 
+    // Subscription Pro state (Freemium: 7-day trial, R$ 9,90/mês)
+    private val _subscriptionInfo = MutableStateFlow(
+        SubscriptionInfo(
+            isPro = true,
+            status = SubscriptionPlanStatus.FREE_TRIAL,
+            daysLeft = 7,
+            priceFormatted = "R$ 9,90",
+            period = "mês"
+        )
+    )
+    val subscriptionInfo: StateFlow<SubscriptionInfo> = _subscriptionInfo.asStateFlow()
+
     // Feedback Toast / Banner message
     private val _feedbackMessage = MutableStateFlow<String?>("Bem-vindo ao TDAH Foco! Seu mapa e ruídos estão prontos.")
     val feedbackMessage: StateFlow<String?> = _feedbackMessage.asStateFlow()
@@ -69,6 +84,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _pomodoroMode = MutableStateFlow(PomodoroMode.FOCUS)
     val pomodoroMode: StateFlow<PomodoroMode> = _pomodoroMode.asStateFlow()
 
+    private val _workDurationMinutes = MutableStateFlow(25)
+    val workDurationMinutes: StateFlow<Int> = _workDurationMinutes.asStateFlow()
+
+    private val _shortBreakDurationMinutes = MutableStateFlow(5)
+    val shortBreakDurationMinutes: StateFlow<Int> = _shortBreakDurationMinutes.asStateFlow()
+
+    private val _longBreakDurationMinutes = MutableStateFlow(15)
+    val longBreakDurationMinutes: StateFlow<Int> = _longBreakDurationMinutes.asStateFlow()
+
     private val _pomodoroTimeLeftSeconds = MutableStateFlow(25 * 60)
     val pomodoroTimeLeftSeconds: StateFlow<Int> = _pomodoroTimeLeftSeconds.asStateFlow()
 
@@ -77,6 +101,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isPomodoroRunning = MutableStateFlow(false)
     val isPomodoroRunning: StateFlow<Boolean> = _isPomodoroRunning.asStateFlow()
+
+    private val _pomodoroCompletedCycles = MutableStateFlow(0)
+    val pomodoroCompletedCycles: StateFlow<Int> = _pomodoroCompletedCycles.asStateFlow()
 
     private var pomodoroJob: Job? = null
     private var sessionElapsedSeconds = 0
@@ -154,13 +181,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 sessionElapsedSeconds = 0
 
                 if (_pomodoroMode.value == PomodoroMode.FOCUS) {
-                    showFeedback("🎉 Parabéns! Bloco de foco concluído. Iniciando pausa de 5 min.")
-                    setPomodoroMode(PomodoroMode.SHORT_BREAK)
+                    _pomodoroCompletedCycles.value += 1
+                    val isLongBreak = _pomodoroCompletedCycles.value % 4 == 0
+                    if (isLongBreak) {
+                        val breakMin = _longBreakDurationMinutes.value
+                        showFeedback("🎉 Excelente! 4 blocos de foco completos! Pausa longa de $breakMin min.")
+                        setPomodoroMode(PomodoroMode.LONG_BREAK)
+                    } else {
+                        val breakMin = _shortBreakDurationMinutes.value
+                        showFeedback("🎉 Bloco de foco concluído! Pausa curta de $breakMin min.")
+                        setPomodoroMode(PomodoroMode.SHORT_BREAK)
+                    }
                 } else {
-                    showFeedback("Pausa finalizada! Pronto para o próximo bloco de foco.")
+                    val workMin = _workDurationMinutes.value
+                    showFeedback("Pausa finalizada! Pronto para o próximo foco ($workMin min).")
                     setPomodoroMode(PomodoroMode.FOCUS)
                 }
             }
+        }
+    }
+
+    fun skipPomodoroSession() {
+        pausePomodoro()
+        if (_pomodoroMode.value == PomodoroMode.FOCUS) {
+            _pomodoroCompletedCycles.value += 1
+            val isLongBreak = _pomodoroCompletedCycles.value % 4 == 0
+            val nextMode = if (isLongBreak) PomodoroMode.LONG_BREAK else PomodoroMode.SHORT_BREAK
+            setPomodoroMode(nextMode)
+            showFeedback("Avançado para ${nextMode.label}.")
+        } else {
+            setPomodoroMode(PomodoroMode.FOCUS)
+            showFeedback("Avançado para Foco Total.")
         }
     }
 
@@ -174,9 +225,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         showFeedback("Pomodoro pausado.")
     }
 
+    fun getDurationForMode(mode: PomodoroMode): Int {
+        return when (mode) {
+            PomodoroMode.FOCUS -> _workDurationMinutes.value
+            PomodoroMode.SHORT_BREAK -> _shortBreakDurationMinutes.value
+            PomodoroMode.LONG_BREAK -> _longBreakDurationMinutes.value
+        }
+    }
+
     fun resetPomodoro() {
         pausePomodoro()
-        val defaultSec = _pomodoroMode.value.minutes * 60
+        val defaultSec = getDurationForMode(_pomodoroMode.value) * 60
         _pomodoroTimeLeftSeconds.value = defaultSec
         _pomodoroTotalSeconds.value = defaultSec
         sessionElapsedSeconds = 0
@@ -185,10 +244,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setPomodoroMode(mode: PomodoroMode) {
         pausePomodoro()
         _pomodoroMode.value = mode
-        val sec = mode.minutes * 60
+        val sec = getDurationForMode(mode) * 60
         _pomodoroTimeLeftSeconds.value = sec
         _pomodoroTotalSeconds.value = sec
         sessionElapsedSeconds = 0
+    }
+
+    fun setWorkDuration(minutes: Int) {
+        val clamped = minutes.coerceIn(1, 120)
+        _workDurationMinutes.value = clamped
+        if (_pomodoroMode.value == PomodoroMode.FOCUS && !_isPomodoroRunning.value) {
+            val sec = clamped * 60
+            _pomodoroTimeLeftSeconds.value = sec
+            _pomodoroTotalSeconds.value = sec
+        }
+        showFeedback("Intervalo de foco ajustado para $clamped min.")
+    }
+
+    fun setShortBreakDuration(minutes: Int) {
+        val clamped = minutes.coerceIn(1, 60)
+        _shortBreakDurationMinutes.value = clamped
+        if (_pomodoroMode.value == PomodoroMode.SHORT_BREAK && !_isPomodoroRunning.value) {
+            val sec = clamped * 60
+            _pomodoroTimeLeftSeconds.value = sec
+            _pomodoroTotalSeconds.value = sec
+        }
+        showFeedback("Intervalo de pausa curta ajustado para $clamped min.")
+    }
+
+    fun setLongBreakDuration(minutes: Int) {
+        val clamped = minutes.coerceIn(1, 60)
+        _longBreakDurationMinutes.value = clamped
+        if (_pomodoroMode.value == PomodoroMode.LONG_BREAK && !_isPomodoroRunning.value) {
+            val sec = clamped * 60
+            _pomodoroTimeLeftSeconds.value = sec
+            _pomodoroTotalSeconds.value = sec
+        }
+        showFeedback("Intervalo de pausa longa ajustado para $clamped min.")
     }
 
     // Mind map actions
@@ -254,6 +346,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setSelectedPomodoroNoise(noiseType: NoiseType) {
         repository.setSelectedPomodoroNoise(noiseType)
+    }
+
+    // Subscription actions
+    fun activatePro() {
+        _subscriptionInfo.value = _subscriptionInfo.value.copy(
+            isPro = true,
+            status = SubscriptionPlanStatus.PRO_ACTIVE,
+            daysLeft = 30
+        )
+        showFeedback("Parabéns! Assinatura Pro ativada com sucesso.")
+    }
+
+    fun startFreeTrial() {
+        _subscriptionInfo.value = _subscriptionInfo.value.copy(
+            isPro = true,
+            status = SubscriptionPlanStatus.FREE_TRIAL,
+            daysLeft = 7
+        )
+        showFeedback("Teste grátis de 7 dias ativado! Aproveite todos os recursos Pro.")
+    }
+
+    fun cancelSubscription() {
+        _subscriptionInfo.value = _subscriptionInfo.value.copy(
+            isPro = false,
+            status = SubscriptionPlanStatus.EXPIRED,
+            daysLeft = 0
+        )
+        showFeedback("Assinatura cancelada. Você agora está no plano gratuito.")
+    }
+
+    fun openSubscriptionScreen() {
+        navigateTo(AppNavigationTab.SUBSCRIPTION)
     }
 
     override fun onCleared() {

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.AppNavigationTab
 import com.example.ui.MainViewModel
+import com.example.ui.components.SubscriptionManagerScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.MindMapScreen
 import com.example.ui.screens.NoisePlayerScreen
@@ -78,11 +79,16 @@ fun MainAppScaffold(viewModel: MainViewModel) {
     val pomodoroTotal by viewModel.pomodoroTotalSeconds.collectAsState()
     val isPomodoroRunning by viewModel.isPomodoroRunning.collectAsState()
     val pomodoroMode by viewModel.pomodoroMode.collectAsState()
+    val workDuration by viewModel.workDurationMinutes.collectAsState()
+    val shortBreakDuration by viewModel.shortBreakDurationMinutes.collectAsState()
+    val longBreakDuration by viewModel.longBreakDurationMinutes.collectAsState()
     val autoNoiseActive by viewModel.autoNoisePomodoro.collectAsState()
     val selectedPomodoroNoise by viewModel.selectedPomodoroNoise.collectAsState()
+    val pomodoroCompletedCycles by viewModel.pomodoroCompletedCycles.collectAsState()
 
     val feedbackMessage by viewModel.feedbackMessage.collectAsState()
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+    val subscriptionInfo by viewModel.subscriptionInfo.collectAsState()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -150,17 +156,28 @@ fun MainAppScaffold(viewModel: MainViewModel) {
                     pomodoroTotal = pomodoroTotal,
                     isPomodoroRunning = isPomodoroRunning,
                     pomodoroMode = pomodoroMode,
+                    workDurationMinutes = workDuration,
+                    shortBreakDurationMinutes = shortBreakDuration,
+                    longBreakDurationMinutes = longBreakDuration,
                     autoNoiseActive = autoNoiseActive,
                     selectedPomodoroNoise = selectedPomodoroNoise,
+                    completedCycles = pomodoroCompletedCycles,
                     routineTasks = routineTasks,
                     feedbackMessage = feedbackMessage,
+                    subscriptionInfo = subscriptionInfo,
+                    onOpenSubscriptionManager = { viewModel.openSubscriptionScreen() },
                     onPlayNoise = { viewModel.playNoise(it) },
+                    onTogglePlayPauseNoise = { viewModel.toggleNoisePlayback() },
                     onSetVolume = { viewModel.setNoiseVolume(it) },
                     onApplyMixedNoise = { viewModel.applyMixedNoisePreset() },
                     onStartPomodoro = { viewModel.startPomodoro() },
                     onPausePomodoro = { viewModel.pausePomodoro() },
                     onResetPomodoro = { viewModel.resetPomodoro() },
                     onSelectPomodoroMode = { viewModel.setPomodoroMode(it) },
+                    onSetWorkDuration = { viewModel.setWorkDuration(it) },
+                    onSetShortBreakDuration = { viewModel.setShortBreakDuration(it) },
+                    onSetLongBreakDuration = { viewModel.setLongBreakDuration(it) },
+                    onSkipPomodoroSession = { viewModel.skipPomodoroSession() },
                     onToggleRoutineTask = { viewModel.toggleRoutineTask(it) },
                     onGenerateMindMap = { viewModel.generateScientificMindMap(it) },
                     onOpenMindMapTab = { viewModel.navigateTo(AppNavigationTab.MIND_MAPS) },
@@ -170,6 +187,8 @@ fun MainAppScaffold(viewModel: MainViewModel) {
                 AppNavigationTab.MIND_MAPS -> MindMapScreen(
                     activeMindMap = activeMindMap,
                     libraryMaps = libraryMaps,
+                    isPro = subscriptionInfo.isPro,
+                    onOpenSubscription = { viewModel.openSubscriptionScreen() },
                     onSelectMap = { viewModel.selectMindMap(it) },
                     onToggleNode = { viewModel.toggleNodeCompletion(it) },
                     onAddNode = { text, icon, tag -> viewModel.addNodeToActiveMap(text, icon, tag) },
@@ -184,6 +203,8 @@ fun MainAppScaffold(viewModel: MainViewModel) {
                     currentNoise = currentNoise,
                     isPlaying = isNoisePlaying,
                     volume = noiseVolume,
+                    isPro = subscriptionInfo.isPro,
+                    onOpenSubscription = { viewModel.openSubscriptionScreen() },
                     onPlayNoise = { viewModel.playNoise(it) },
                     onTogglePlayPause = { viewModel.toggleNoisePlayback() },
                     onSetVolume = { viewModel.setNoiseVolume(it) },
@@ -203,10 +224,20 @@ fun MainAppScaffold(viewModel: MainViewModel) {
                     isDarkTheme = isDarkTheme,
                     autoNoisePomodoro = autoNoiseActive,
                     selectedPomodoroNoise = selectedPomodoroNoise,
+                    subscriptionInfo = subscriptionInfo,
+                    onOpenSubscriptionManager = { viewModel.openSubscriptionScreen() },
                     onUpdateUserName = { viewModel.updateUserName(it) },
                     onToggleTheme = { viewModel.toggleTheme() },
                     onToggleAutoNoise = { viewModel.setAutoNoiseWithPomodoro(it) },
                     onSelectPomodoroNoise = { viewModel.setSelectedPomodoroNoise(it) }
+                )
+
+                AppNavigationTab.SUBSCRIPTION -> SubscriptionManagerScreen(
+                    subscriptionInfo = subscriptionInfo,
+                    onStartFreeTrial = { viewModel.startFreeTrial() },
+                    onActivatePro = { viewModel.activatePro() },
+                    onCancelSubscription = { viewModel.cancelSubscription() },
+                    onBackToDashboard = { viewModel.navigateTo(AppNavigationTab.DASHBOARD) }
                 )
             }
         }

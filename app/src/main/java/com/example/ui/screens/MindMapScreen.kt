@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.FolderSpecial
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.MindMap
+import com.example.data.model.SubscriptionInfo
 import com.example.ui.components.MindMapCanvas
 import com.example.ui.components.ScientificEvidenceCard
 import com.example.ui.theme.AquaPrimary
@@ -70,10 +72,13 @@ fun MindMapScreen(
     onToggleFavorite: (String) -> Unit,
     onGenerateMindMap: (String) -> Unit,
     onExportMap: () -> Unit,
+    isPro: Boolean = true,
+    onOpenSubscription: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showLibrarySheet by remember { mutableStateOf(false) }
     var showGenerateDialog by remember { mutableStateOf(false) }
+    var showProRequiredDialog by remember { mutableStateOf<String?>(null) }
     var generatePrompt by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
@@ -139,14 +144,25 @@ fun MindMapScreen(
                 }
 
                 Button(
-                    onClick = { showGenerateDialog = true },
+                    onClick = {
+                        if (isPro) {
+                            showGenerateDialog = true
+                        } else {
+                            showProRequiredDialog = "Geração de Mapas Mentais com Inteligência Artificial é um recurso exclusivo do Plano Pro."
+                        }
+                    },
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary),
                     modifier = Modifier.testTag("mindmap_screen_generate_btn")
                 ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = NavyDarkBackground, modifier = Modifier.size(16.dp))
+                    Icon(
+                        imageVector = if (isPro) Icons.Default.AutoAwesome else Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = NavyDarkBackground,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("IA", color = NavyDarkBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text(if (isPro) "IA" else "PRO", color = NavyDarkBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }
@@ -205,8 +221,57 @@ fun MindMapScreen(
             onAddNode = onAddNode,
             onRemoveNode = onRemoveNode,
             onChangeBackground = onChangeBackground,
-            onExport = onExportMap,
+            onExport = {
+                if (isPro) {
+                    onExportMap()
+                } else {
+                    showProRequiredDialog = "A exportação de mapas mentais em PDF e imagem com citações científicas é um recurso exclusivo do Plano Pro."
+                }
+            },
             modifier = Modifier.weight(1f)
+        )
+    }
+
+    // Pro Required Dialog
+    showProRequiredDialog?.let { reason ->
+        AlertDialog(
+            onDismissRequest = { showProRequiredDialog = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = WarmAmber)
+                    Text("Recurso Exclusivo Pro", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Experimente grátis por 7 dias ou assine por apenas R$ 9,90/mês. Cancele quando quiser.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showProRequiredDialog = null
+                        onOpenSubscription()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AquaPrimary)
+                ) {
+                    Text("Conhecer Plano Pro", color = NavyDarkBackground, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showProRequiredDialog = null }) {
+                    Text("Agora não")
+                }
+            }
         )
     }
 

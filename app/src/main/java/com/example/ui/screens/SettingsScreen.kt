@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,8 +20,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brightness4
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Diamond
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Science
@@ -30,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -47,7 +52,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.NoiseType
+import com.example.data.model.SubscriptionInfo
+import com.example.data.model.SubscriptionPlanStatus
 import com.example.ui.theme.AquaPrimary
+import com.example.ui.theme.CalmMint
 import com.example.ui.theme.NavyDarkBackground
 
 @Composable
@@ -56,6 +64,8 @@ fun SettingsScreen(
     isDarkTheme: Boolean,
     autoNoisePomodoro: Boolean,
     selectedPomodoroNoise: NoiseType,
+    subscriptionInfo: SubscriptionInfo = SubscriptionInfo(),
+    onOpenSubscriptionManager: () -> Unit = {},
     onUpdateUserName: (String) -> Unit,
     onToggleTheme: () -> Unit,
     onToggleAutoNoise: (Boolean) -> Unit,
@@ -93,6 +103,73 @@ fun SettingsScreen(
                     color = AquaPrimary
                 )
             )
+        }
+
+        // Subscription Pro Management Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .testTag("settings_subscription_card"),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Diamond,
+                            contentDescription = null,
+                            tint = if (subscriptionInfo.isPro) AquaPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Column {
+                            Text(
+                                text = "Assinatura Pro",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            Text(
+                                text = if (subscriptionInfo.status == SubscriptionPlanStatus.FREE_TRIAL) {
+                                    "Teste de 7 dias (${subscriptionInfo.daysLeft} dias restantes)"
+                                } else if (subscriptionInfo.isPro) {
+                                    "Plano Pro Ativo (${subscriptionInfo.priceFormatted}/${subscriptionInfo.period})"
+                                } else {
+                                    "Plano Básico Gratuito"
+                                },
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = if (subscriptionInfo.isPro) CalmMint else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onOpenSubscriptionManager,
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = if (subscriptionInfo.isPro) "Gerenciar" else "Ver Planos",
+                            color = AquaPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
         }
 
         // Profile & Avatar Card
@@ -365,6 +442,70 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold
                         )
                     )
+                }
+            }
+        }
+
+        // Suporte Prioritário TDAH (Recurso Pro)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .testTag("settings_support_card"),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = null,
+                            tint = if (subscriptionInfo.isPro) AquaPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Column {
+                            Text(
+                                text = "Suporte Especializado",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                            Text(
+                                text = if (subscriptionInfo.isPro) {
+                                    "joathan.nunes23@gmail.com • Atendimento Direto Pro"
+                                } else {
+                                    "Disponível prioritariamente para assinantes Pro"
+                                },
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+                    }
+
+                    if (!subscriptionInfo.isPro) {
+                        OutlinedButton(
+                            onClick = onOpenSubscriptionManager,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = AquaPrimary, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("PRO", color = AquaPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
                 }
             }
         }

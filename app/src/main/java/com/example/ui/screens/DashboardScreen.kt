@@ -60,7 +60,10 @@ import com.example.data.model.MindMap
 import com.example.data.model.NoiseType
 import com.example.data.model.PomodoroMode
 import com.example.data.model.RoutineTask
+import com.example.data.model.SubscriptionInfo
+import com.example.ui.components.NoisePlayerCard
 import com.example.ui.components.PomodoroTimerCard
+import com.example.ui.components.SubscriptionBanner
 import com.example.ui.theme.AquaPrimary
 import com.example.ui.theme.CalmMint
 import com.example.ui.theme.NavyDarkBackground
@@ -78,17 +81,28 @@ fun DashboardScreen(
     pomodoroTotal: Int,
     isPomodoroRunning: Boolean,
     pomodoroMode: PomodoroMode,
+    workDurationMinutes: Int = 25,
+    shortBreakDurationMinutes: Int = 5,
+    longBreakDurationMinutes: Int = 15,
     autoNoiseActive: Boolean,
     selectedPomodoroNoise: NoiseType,
+    completedCycles: Int = 0,
     routineTasks: List<RoutineTask>,
     feedbackMessage: String?,
+    subscriptionInfo: SubscriptionInfo = SubscriptionInfo(),
+    onOpenSubscriptionManager: () -> Unit = {},
     onPlayNoise: (NoiseType) -> Unit,
+    onTogglePlayPauseNoise: () -> Unit = {},
     onSetVolume: (Float) -> Unit,
     onApplyMixedNoise: () -> Unit,
     onStartPomodoro: () -> Unit,
     onPausePomodoro: () -> Unit,
     onResetPomodoro: () -> Unit,
     onSelectPomodoroMode: (PomodoroMode) -> Unit,
+    onSetWorkDuration: (Int) -> Unit = {},
+    onSetShortBreakDuration: (Int) -> Unit = {},
+    onSetLongBreakDuration: (Int) -> Unit = {},
+    onSkipPomodoroSession: (() -> Unit)? = null,
     onToggleRoutineTask: (String) -> Unit,
     onGenerateMindMap: (String) -> Unit,
     onOpenMindMapTab: () -> Unit,
@@ -218,6 +232,12 @@ fun DashboardScreen(
                     }
                 }
             }
+
+            // Subscription Freemium Banner (Calmo e Acolhedor)
+            SubscriptionBanner(
+                subscriptionInfo = subscriptionInfo,
+                onOpenSubscriptionManager = onOpenSubscriptionManager
+            )
 
             // 1. Large Card: "Meu Mapa Mental Hoje"
             Card(
@@ -350,153 +370,37 @@ fun DashboardScreen(
                 }
             }
 
-            // 2. Large Card: "Ruídos Ativos" (3 botões grandes: Marrom, Branco, Rosa)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .testTag("card_active_noises"),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(text = "🎧", fontSize = 20.sp)
-                            Column {
-                                Text(
-                                    text = "Ruídos Ativos",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                )
-                                Text(
-                                    text = if (isNoisePlaying) "Tocando: ${currentNoise.displayName}" else "Regulação e isolamento sonoro",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = if (isNoisePlaying) CalmMint else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            }
-                        }
+            // 2. Large Card: "Player de Ruídos" (Marrom, Branco, Rosa, volume e play/pause)
+            NoisePlayerCard(
+                currentNoise = currentNoise,
+                isPlaying = isNoisePlaying,
+                volume = noiseVolume,
+                onPlayNoise = onPlayNoise,
+                onTogglePlayPause = onTogglePlayPauseNoise,
+                onSetVolume = onSetVolume,
+                onApplyMixedPreset = onApplyMixedNoise
+            )
 
-                        if (isNoisePlaying) {
-                            Icon(
-                                imageVector = Icons.Default.GraphicEq,
-                                contentDescription = "Tocando",
-                                tint = CalmMint,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    // 3 Big Buttons: Marrom, Branco, Rosa
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(
-                            Triple(NoiseType.BROWN, "Marrom", "🌊"),
-                            Triple(NoiseType.WHITE, "Branco", "💨"),
-                            Triple(NoiseType.PINK, "Rosa", "🌧️")
-                        ).forEach { (type, label, emoji) ->
-                            val isCurrentActive = isNoisePlaying && currentNoise == type
-                            Button(
-                                onClick = { onPlayNoise(type) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(54.dp)
-                                    .testTag("noise_button_${type.name.lowercase()}"),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isCurrentActive) AquaPrimary else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = emoji, fontSize = 16.sp)
-                                    Text(
-                                        text = label,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isCurrentActive) NavyDarkBackground else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Volume control & Quick Mix
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text(
-                            text = "Volume",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
-                        Slider(
-                            value = noiseVolume,
-                            onValueChange = onSetVolume,
-                            modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(
-                                thumbColor = AquaPrimary,
-                                activeTrackColor = AquaPrimary
-                            )
-                        )
-                        Text(
-                            text = "${(noiseVolume * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = AquaPrimary
-                            )
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = onApplyMixedNoise,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("dashboard_mix_btn")
-                    ) {
-                        Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Usar Mixado (Rosa 70% + Marrom 30%)", fontSize = 12.sp)
-                    }
-                }
-            }
-
-            // 3. Large Card: "Sessão Pomodoro" (timer 25 min + 5 min, com ruído automático)
+            // 3. Large Card: "Sessão Pomodoro" (com controles e intervalos ajustáveis)
             PomodoroTimerCard(
                 timeLeftSeconds = pomodoroTimeLeft,
                 totalSeconds = pomodoroTotal,
                 isRunning = isPomodoroRunning,
                 mode = pomodoroMode,
+                workDurationMinutes = workDurationMinutes,
+                shortBreakDurationMinutes = shortBreakDurationMinutes,
+                longBreakDurationMinutes = longBreakDurationMinutes,
                 autoNoiseActive = autoNoiseActive,
                 selectedNoise = selectedPomodoroNoise,
+                completedCycles = completedCycles,
                 onStart = onStartPomodoro,
                 onPause = onPausePomodoro,
                 onReset = onResetPomodoro,
-                onSelectMode = onSelectPomodoroMode
+                onSelectMode = onSelectPomodoroMode,
+                onSetWorkDuration = onSetWorkDuration,
+                onSetShortBreakDuration = onSetShortBreakDuration,
+                onSetLongBreakDuration = onSetLongBreakDuration,
+                onSkipSession = onSkipPomodoroSession
             )
 
             // 4. Large Card: "Rotina Hoje" (lista simples com checkmarks)
